@@ -1,0 +1,23 @@
+[project]
+name = "terminal-newspaper"
+version = "0.1.0"
+description = "News in terminal."
+readme = "README.md"
+authors = [
+    { name = "Mateusz Skorupinski", email = "mateusz.skorupinski@dataart.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "argparse>=1.4.0",
+    "dotenv>=0.9.9",
+    "feedparser>=6.0.14",
+    "httpx>=0.28.1",
+    "langchain-chroma>=1.1.0",
+    "langchain-core>=1.7.7",
+    "langchain-openai>=1.7.4",
+    "langchain-text-splitters>=1.1.3",
+    "pydantic>=2.14.3",
+    "questionary>=2.1.1",
+    "rich>=15.0.0",
+    "trafilatura>=2.3.1",
+]
