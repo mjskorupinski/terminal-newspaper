@@ -2,10 +2,17 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Iterator
 
 import questionary
-from rich.console import Console
+from rich.console import Console, Group
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.align import Align
+from rich.rule import Rule
+from rich.text import Text
+
+import math
+from urllib.parse import urlparse
+
 
 if TYPE_CHECKING:
     from src.core.article import Article
@@ -67,27 +74,63 @@ class TerminalUI:
 
     def render_article(self, article: "Article | str") -> None:
         self._console.clear()
+        col_width = min(92, max(50, self._console.width - 4))
 
         if isinstance(article, str):
-            md_content = article
+            body = Markdown(article, justify="left")
+            renderable = Panel(
+                body,
+                border_style="cyan",
+                padding=(1, 3),
+                width=col_width,
+            )
         else:
+            domain = urlparse(article.url).netloc.removeprefix("www.")
             date_str = (
-                article.publish_date.strftime("%Y-%m-%d %H:%M")
+                article.publish_date.strftime("%Y-%m-%d · %H:%M")
                 if article.publish_date
                 else "Unknown date"
             )
-            md_content = (
-                f"# {article.title}\n"
-                f"*Published: {date_str}*  \n"
-                f"*Source: {article.url}*\n\n"
-                f"---\n\n"
-                f"{article.content}\n"
+            word_count = len(article.content.split())
+            read_minutes = max(1, math.ceil(word_count / 220))
+
+            # Headline
+            title_text = Text(article.title, style="bold bright_white")
+
+            # Metadata bar: domain · date · reading time
+            meta_text = Text.assemble(
+                (domain, "bold cyan"),
+                ("  ·  ", "dim"),
+                (date_str, "dim"),
+                ("  ·  ", "dim"),
+                (f"{read_minutes} min read", "italic dim"),
+            )
+
+            # Clickable source link (supported in modern terminals like Windows Terminal, iTerm2, Kitty, Alacritty)
+            link_text = Text(article.url, style=f"dim underline link {article.url}")
+
+            # Left-justified Markdown avoids awkward wide spaces between words
+            article_body = Markdown(article.content, justify="left")
+
+            content_group = Group(
+                title_text,
+                Text(""),
+                meta_text,
+                link_text,
+                Rule(style="dim cyan"),
+                Text(""),
+                article_body,
+            )
+
+            renderable = Panel(
+                content_group,
+                border_style="cyan",
+                padding=(1, 3),
+                width=col_width,
             )
 
         self._console.print()
-        self._console.print(
-            Panel(Markdown(md_content), border_style="cyan", padding=(1, 2))
-        )
+        self._console.print(Align.center(renderable))
         self._console.print()
 
     @contextmanager

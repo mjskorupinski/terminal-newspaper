@@ -47,8 +47,12 @@ class RSSSource(Source):
 
                 content = trafilatura.extract(
                     response.text,
+                    url=entry.link,
+                    output_format="markdown",
+                    include_formatting=True,
                     include_comments=False,
-                    include_tables=True
+                    include_tables=True,
+                    deduplicate=True
                 )
                 if not content:
                     return None
@@ -56,14 +60,31 @@ class RSSSource(Source):
                 parsed_date = self._parse_date(entry)
 
                 return Article(
-                    title=entry.title,
+                    title=entry.title.strip(),
                     url=entry.link,
                     publish_date=parsed_date,
-                    content=content
+                    content=self._clean_markdown(content),
                 )
             except Exception as e:
                 LOGGER.error(f"Error fetching {entry.link}: {e}")
                 return None
+
+    @staticmethod
+    def _clean_markdown(text: str) -> str:
+        lines = [line.rstrip() for line in text.splitlines()]
+        cleaned: list[str] = []
+        blank_streak = 0
+
+        for line in lines:
+            if not line:
+                blank_streak += 1
+                if blank_streak <= 1:
+                    cleaned.append("")
+            else:
+                blank_streak = 0
+                cleaned.append(line)
+
+        return "\n".join(cleaned).strip()
 
     async def fetch_articles(self) -> list[Article]:
         feed = feedparser.parse(self.rss_url)
