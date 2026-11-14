@@ -39,7 +39,6 @@ class TerminalNewspaperApp:
 
 
     async def _startup(self) -> None:
-        """Displays a startup loading screen, loads DB, and auto-fetches if empty."""
         self._ui.render_splash()
 
         with self._ui.spinner("Initializing search engine & database..."):
@@ -81,9 +80,6 @@ class TerminalNewspaperApp:
 
         self._status_msg = "[bold green]✓[/bold green] News fetched and indexed successfully."
 
-    # ------------------------------------------------------------------
-    # Views & Submenus
-    # ------------------------------------------------------------------
 
     async def _browse_topic(self, topic: str) -> None:
         if not self._engine.is_initialized:
@@ -235,9 +231,6 @@ class TerminalNewspaperApp:
         self._config.add_topic(clean_topic)
         return f"[green]+[/green] Added topic: [bold]{clean_topic}[/bold]", True
 
-    # ------------------------------------------------------------------
-    # Menu Builder
-    # ------------------------------------------------------------------
 
     def _build_main_menu(self) -> list[questionary.Choice | questionary.Separator]:
         choices: list[questionary.Choice | questionary.Separator] = [

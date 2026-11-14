@@ -5,32 +5,34 @@ from pathlib import Path
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from src.core.article import Article
 
 CHROMA_DIR = Path("./db")
+DEFAULT_MAX_DISTANCE = 0.76 
+
 
 class ArticleStorage:
-    def __init__(self, embeddings: Embeddings, persist_dir: Path = CHROMA_DIR) -> None:
+    def __init__(self, embeddings: Embeddings, persist_dir: Path = CHROMA_DIR, 
+                 max_distance: float = DEFAULT_MAX_DISTANCE) -> None:
         self._embeddings = embeddings
         self._persist_dir = persist_dir
         self._cache_path = self._persist_dir / "articles_cache.json"
+        self._max_distance = max_distance
 
         self._persist_dir.mkdir(parents=True, exist_ok=True)
 
-        self._text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=150,
-        )
-        self.vector_store = Chroma(
+        self.vector_store = self._create_vector_store()
+        self._articles: dict[str, Article] = {}
+        self._sync_with_today()
+
+    def _create_vector_store(self) -> Chroma:
+        return Chroma(
             collection_name="articles",
             embedding_function=self._embeddings,
             persist_directory=str(self._persist_dir),
+            collection_metadata={"hnsw:space": "cosine"},
         )
-
-        self._articles: dict[str, Article] = {}
-        self._sync_with_today()
 
     @property
     def articles_count(self) -> int:
@@ -41,7 +43,12 @@ class ArticleStorage:
         return date.today().isoformat()
 
     def _reset_database(self) -> None:
-        self.vector_store.reset_collection()
+        """Deletes and recreates the collection so hnsw:space='cosine' is preserved."""
+        try:
+            self.vector_store.delete_collection()
+        except Exception:
+            pass
+        self.vector_store = self._create_vector_store()
         self._articles.clear()
         self._write_cache({})
 
@@ -94,12 +101,29 @@ class ArticleStorage:
         self._write_cache(serialized)
 
     def _chunk_article(self, article: Article) -> list[Document]:
+        """Embeds Title + Lead as primary topic vector, plus 1 coarse body window for long articles."""
         metadata = {
             "title": article.title,
             "url": article.url,
         }
-        chunks = self._text_splitter.split_text(article.content)
-        return [Document(page_content=chunk, metadata=metadata) for chunk in chunks]
+        clean_text = article.content.strip()
+
+        documents = [
+            Document(
+                page_content=f"{article.title}\n\n{clean_text[:1500]}",
+                metadata=metadata,
+            )
+        ]
+
+        if len(clean_text) > 1800:
+            documents.append(
+                Document(
+                    page_content=f"{article.title}\n\n{clean_text[1300:4000]}",
+                    metadata=metadata,
+                )
+            )
+
+        return documents
 
     async def store_articles(self, articles: list[Article]) -> None:
         self._sync_with_today()
@@ -117,20 +141,31 @@ class ArticleStorage:
         if documents:
             await self.vector_store.aadd_documents(documents)
 
-    async def search_by_topic(self, topic_phrase: str, k: int = 5) -> list[Article]:
+    async def search_by_topic(
+        self,
+        topic_phrase: str,
+        k: int = 10,
+        max_distance: float | None = None,
+    ) -> list[Article]:
         self._sync_with_today()
 
         if not self._articles:
             return []
 
-        matched_chunks = await self.vector_store.asimilarity_search(topic_phrase, k=k)
+        cutoff = max_distance if max_distance is not None else self._max_distance
 
-        urls = list(
-            dict.fromkeys(
-                chunk.metadata["url"]
-                for chunk in matched_chunks
-                if chunk.metadata.get("url")
-            )
+        scored_chunks = await self.vector_store.asimilarity_search_with_score(
+            topic_phrase,
+            k=min(k * 3, len(self._articles) * 2),
         )
 
-        return [self._articles[url] for url in urls if url in self._articles]
+        best_distances: dict[str, float] = {}
+        for chunk, distance in scored_chunks:
+            url = chunk.metadata.get("url")
+            if not url or url not in self._articles:
+                continue
+            if distance <= cutoff and distance < best_distances.get(url, float("inf")):
+                best_distances[url] = distance
+
+        ranked_urls = sorted(best_distances, key=best_distances.get)[:k]
+        return [self._articles[url] for url in ranked_urls]
