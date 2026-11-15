@@ -58,12 +58,6 @@ You can customize `settings/sources.json` and `settings/topics.json` before star
 ```json
 {
   "sources": [
-    { "name": "Onet Wiadomości", "url": "https://wiadomosci.onet.pl/.feed" },
-    { "name": "WP Wiadomości", "url": "https://wiadomosci.wp.pl/rss.xml" },
-    { "name": "RMF24", "url": "https://www.rmf24.pl/fakty/feed" },
-    { "name": "TVN24", "url": "https://tvn24.pl/najnowsze.xml" },
-    { "name": "Bankier.pl", "url": "https://www.bankier.pl/rss/wiadomosci.xml" },
-    { "name": "Money.pl", "url": "https://www.money.pl/rss/rss.xml" },
     { "name": "BBC World", "url": "https://feeds.bbci.co.uk/news/world/rss.xml" },
     { "name": "Al Jazeera", "url": "https://www.aljazeera.com/xml/rss/all.xml" }
   ]
@@ -74,10 +68,10 @@ You can customize `settings/sources.json` and `settings/topics.json` before star
 ```json
 {
   "topics": [
-    "Rosja",
-    "Izrael",
-    "Trump",
-    "Trybunał"
+    "AI",
+    "Middle East",
+    "USA",
+    "Ukraine"
   ]
 }
 ```
