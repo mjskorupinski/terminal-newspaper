@@ -6,7 +6,8 @@ from src.utils import load_json_list, save_json_list
 
 import json
 
-SETTINGS_DIR = Path("settings")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+SETTINGS_DIR = PROJECT_ROOT / "settings"
 SOURCES_FILE = SETTINGS_DIR / "sources.json"
 TOPICS_FILE = SETTINGS_DIR / "topics.json"
 

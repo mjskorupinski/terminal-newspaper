@@ -1,5 +1,8 @@
 import asyncio
 from src.app import TerminalNewspaperApp
 
-if __name__ == "__main__":
+def main() -> None:
     asyncio.run(TerminalNewspaperApp().run())
+
+if __name__ == "__main__":
+    main()

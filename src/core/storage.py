@@ -8,7 +8,9 @@ from langchain_core.embeddings import Embeddings
 
 from src.core.article import Article
 
-CHROMA_DIR = Path("./db")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+CHROMA_DIR = PROJECT_ROOT / "db"
+
 DEFAULT_MAX_DISTANCE = 0.76 
 
 

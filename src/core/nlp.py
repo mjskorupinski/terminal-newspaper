@@ -5,6 +5,9 @@ from langchain_openai import AzureOpenAIEmbeddings
 from langchain_core.embeddings import Embeddings
 
 from abc import ABC, abstractmethod
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 class ModelProvider(ABC):
 
@@ -18,7 +21,7 @@ class AzureOpenAIConfig(BaseSettings):
     api_version: str
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=PROJECT_ROOT / ".env",
         env_file_encoding="utf-8",
         extra="ignore"
     )
