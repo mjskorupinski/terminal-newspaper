@@ -2,7 +2,7 @@ import asyncio
 
 from src.logger import get_logger
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from datetime import datetime
 from dateutil import parser as date_parser
 
@@ -18,14 +18,19 @@ LOGGER = get_logger('article_provider', stdout=False)
 class Article(BaseModel):
     title: str
     url: str
+    source: str
     publish_date: datetime | None
     content: str
 
 class Source(ABC):
-    pass
+
+    @abstractmethod
+    async def fetch_articles(self) -> list[Article]:
+        pass
 
 class RSSSource(Source):
-    def __init__(self, rss_url: str, max_concurrent = 10):
+    def __init__(self, name: str, rss_url: str, max_concurrent = 10):
+        self.name = name
         self.rss_url = rss_url
         self.semaphore = asyncio.Semaphore(max_concurrent)
 
@@ -62,6 +67,7 @@ class RSSSource(Source):
                 return Article(
                     title=entry.title.strip(),
                     url=entry.link,
+                    source=self.name,
                     publish_date=parsed_date,
                     content=self._clean_markdown(content),
                 )

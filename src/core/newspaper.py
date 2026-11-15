@@ -18,6 +18,9 @@ class TerminalNewspaper:
     def articles_count(self):
         return self._storage.articles_count
 
+    def get_all_articles(self) -> list[Article]:
+        return self._storage.get_all_articles()
+
     async def prepare_news(self) -> None:
         articles = await self._article_provider.fetch_articles()
         await self._storage.store_articles(articles)

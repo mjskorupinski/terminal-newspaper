@@ -38,6 +38,9 @@ class ArticleStorage:
     def articles_count(self) -> int:
         return len(self._articles)
 
+    def get_all_articles(self) -> list[Article]:
+        return self._articles.values()
+
     @staticmethod
     def _today_str() -> str:
         return date.today().isoformat()
@@ -69,6 +72,7 @@ class ArticleStorage:
             url: Article(
                 title=entry["title"],
                 url=url,
+                source=entry.get("source", "Unknown Source"),
                 content=entry["content"],
                 publish_date=(
                     datetime.fromisoformat(entry["publish_date"])
@@ -93,6 +97,7 @@ class ArticleStorage:
         serialized = {
             url: {
                 "title": art.title,
+                "source": art.source,
                 "content": art.content,
                 "publish_date": art.publish_date.isoformat() if art.publish_date else None,
             }
@@ -101,10 +106,10 @@ class ArticleStorage:
         self._write_cache(serialized)
 
     def _chunk_article(self, article: Article) -> list[Document]:
-        """Embeds Title + Lead as primary topic vector, plus 1 coarse body window for long articles."""
         metadata = {
             "title": article.title,
             "url": article.url,
+            "source": article.source
         }
         clean_text = article.content.strip()
 

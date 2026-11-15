@@ -1,5 +1,5 @@
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from urllib.parse import urlparse
 
 from src.utils import load_json_list, save_json_list

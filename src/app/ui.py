@@ -1,18 +1,16 @@
+import math
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Iterator
+from typing import TYPE_CHECKING, Any
 
 import questionary
+from rich.align import Align
 from rich.console import Console, Group
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich.align import Align
 from rich.rule import Rule
 from rich.text import Text
-
-import math
-from urllib.parse import urlparse
-
 
 if TYPE_CHECKING:
     from src.core.article import Article
@@ -85,7 +83,6 @@ class TerminalUI:
                 width=col_width,
             )
         else:
-            domain = urlparse(article.url).netloc.removeprefix("www.")
             date_str = (
                 article.publish_date.strftime("%Y-%m-%d · %H:%M")
                 if article.publish_date
@@ -94,22 +91,17 @@ class TerminalUI:
             word_count = len(article.content.split())
             read_minutes = max(1, math.ceil(word_count / 220))
 
-            # Headline
             title_text = Text(article.title, style="bold bright_white")
 
-            # Metadata bar: domain · date · reading time
             meta_text = Text.assemble(
-                (domain, "bold cyan"),
+                (article.source, "bold cyan"),
                 ("  ·  ", "dim"),
                 (date_str, "dim"),
                 ("  ·  ", "dim"),
                 (f"{read_minutes} min read", "italic dim"),
             )
 
-            # Clickable source link (supported in modern terminals like Windows Terminal, iTerm2, Kitty, Alacritty)
             link_text = Text(article.url, style=f"dim underline link {article.url}")
-
-            # Left-justified Markdown avoids awkward wide spaces between words
             article_body = Markdown(article.content, justify="left")
 
             content_group = Group(
