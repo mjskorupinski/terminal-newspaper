@@ -41,6 +41,14 @@ class ArticleStorage:
     def get_all_articles(self) -> list[Article]:
         return self._articles.values()
 
+    def get_articles_by_source(self, source_name: str) -> list[Article]:
+        self._sync_with_today()
+        return sorted(
+            (art for art in self._articles.values() if art.source == source_name),
+            key=lambda a: a.publish_date.timestamp() if a.publish_date else 0.0,
+            reverse=True,
+        )
+
     @staticmethod
     def _today_str() -> str:
         return date.today().isoformat()

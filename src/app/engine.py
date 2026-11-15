@@ -45,3 +45,7 @@ class NewspaperEngine:
     async def get_all_articles(self, sources: list["SourceEntry"]) -> list["Article"]:
         newspaper = await self.initialize(sources)
         return newspaper.get_all_articles()
+
+    async def get_articles_by_source(self, sources: list["SourceEntry"], source_name: str) -> list["Article"]:
+        newspaper = await self.initialize(sources)
+        return newspaper.get_articles_by_source(source_name)

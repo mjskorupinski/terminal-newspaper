@@ -21,6 +21,9 @@ class TerminalNewspaper:
     def get_all_articles(self) -> list[Article]:
         return self._storage.get_all_articles()
 
+    def get_articles_by_source(self, source_name: str) -> list[Article]:
+        return self._storage.get_articles_by_source(source_name)
+
     async def prepare_news(self) -> None:
         articles = await self._article_provider.fetch_articles()
         await self._storage.store_articles(articles)

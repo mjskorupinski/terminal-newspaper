@@ -1,3 +1,4 @@
+import random
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any
 
@@ -24,7 +25,6 @@ class TerminalNewspaperApp:
         self._status_msg: str | None = None
 
     async def run(self) -> None:
-        """Initializes the app on a loading screen, then enters the main menu loop."""
         await self._startup()
 
         while True:
@@ -41,7 +41,6 @@ class TerminalNewspaperApp:
                 break
 
             await self._dispatch(action)
-
 
     async def _startup(self) -> None:
         """Displays a startup loading screen, loads DB, and auto-fetches if empty."""
@@ -63,16 +62,20 @@ class TerminalNewspaperApp:
             )
 
     async def _dispatch(self, action: Any) -> None:
-        if action == "prepare":
+        if action == "random":
+            await self._open_random_article()
+        elif action == "prepare":
             await self._prepare_news()
-        elif action == "all_articles":
-            await self._browse_all_articles()
         elif action == "manage_sources":
             await self._manage_sources()
         elif action == "manage_topics":
             await self._manage_topics()
-        elif isinstance(action, tuple) and action[0] == "topic":
-            await self._browse_topic(action[1])
+        elif isinstance(action, tuple):
+            kind, value = action
+            if kind == "topic":
+                await self._browse_topic(value)
+            elif kind == "source":
+                await self._browse_source(value)
 
     async def _prepare_news(self) -> None:
         if not self._config.sources:
@@ -89,7 +92,7 @@ class TerminalNewspaperApp:
         self._status_msg = "[bold green]✓[/bold green] News fetched and indexed successfully."
 
 
-    async def _browse_all_articles(self) -> None:
+    async def _open_random_article(self) -> None:
         if not self._engine.is_initialized:
             with self._ui.spinner("Initializing search engine & database..."):
                 await self._engine.initialize(self._config.sources)
@@ -99,11 +102,58 @@ class TerminalNewspaperApp:
             self._status_msg = "[yellow]![/yellow] No articles indexed today. Try fetching news first."
             return
 
-        await self._present_articles_by_source(
-            header_title="ALL ARTICLES",
-            header_subtitle=f"{len(articles)} total",
-            articles=articles,
-        )
+        seen_urls: set[str] = set()
+
+        while True:
+            remaining = [a for a in articles if a.url not in seen_urls]
+            if not remaining:
+                seen_urls.clear()
+                remaining = articles
+
+            chosen = random.choice(remaining)
+            seen_urls.add(chosen.url)
+
+            self._ui.render_article(chosen)
+
+            next_step = await self._ui.select([
+                questionary.Choice(title="  🎲  Another random article", value="another"),
+                questionary.Choice(title="  ←   Back to main menu", value=BACK_SENTINEL),
+            ])
+            if next_step != "another":
+                return
+
+    async def _browse_source(self, source_name: str) -> None:
+        if not self._engine.is_initialized:
+            with self._ui.spinner("Initializing search engine & database..."):
+                await self._engine.initialize(self._config.sources)
+
+        articles = await self._engine.get_articles_by_source(self._config.sources, source_name)
+        if not articles:
+            self._status_msg = (
+                f"[yellow]![/yellow] No articles found for '[bold]{source_name}[/bold]'. Try fetching news first."
+            )
+            return
+
+        choices: list[questionary.Choice | questionary.Separator] = [
+            questionary.Choice(
+                title=f"  {idx}.  {self._ui.format_article_label(art)}",
+                value=art,
+            )
+            for idx, art in enumerate(articles, start=1)
+        ]
+        choices.extend([
+            questionary.Separator(DIVIDER),
+            questionary.Choice(title="  ←  Back to main menu", value=BACK_SENTINEL),
+        ])
+
+        while True:
+            self._ui.render_sub_header(source_name.upper(), f"{len(articles)} articles")
+            selected = await self._ui.select(choices)
+            if selected is None or selected == BACK_SENTINEL:
+                return
+
+            self._ui.render_article(selected)
+            await self._ui.pause("Press any key to return to articles...")
 
     async def _browse_topic(self, topic: str) -> None:
         if not self._engine.is_initialized:
@@ -119,23 +169,10 @@ class TerminalNewspaperApp:
             )
             return
 
-        await self._present_articles_by_source(
-            header_title="TOPIC",
-            header_subtitle=f"# {topic}  ·  {len(articles)} matched",
-            articles=articles,
-        )
-
-    async def _present_articles_by_source(
-        self,
-        header_title: str,
-        header_subtitle: str,
-        articles: list["Article | str"],
-    ) -> None:
-        """Displays articles grouped under their configured source names."""
         choices = self._build_grouped_article_choices(articles)
 
         while True:
-            self._ui.render_sub_header(header_title, header_subtitle)
+            self._ui.render_sub_header("TOPIC", f"# {topic}  ·  {len(articles)} matched")
             selected = await self._ui.select(choices)
             if selected is None or selected == BACK_SENTINEL:
                 return
@@ -306,14 +343,9 @@ class TerminalNewspaperApp:
         self._config.add_topic(clean_topic)
         return f"[green]+[/green] Added topic: [bold]{clean_topic}[/bold]", True
 
+
     def _build_main_menu(self) -> list[questionary.Choice | questionary.Separator]:
         choices: list[questionary.Choice | questionary.Separator] = [
-            questionary.Separator("  ACTIONS"),
-            questionary.Choice(title="  📰 All articles (by source)", value="all_articles"),
-            questionary.Choice(title="  ↻  Fetch & index news", value="prepare"),
-            questionary.Choice(title="  ⚙  Manage sources", value="manage_sources"),
-            questionary.Choice(title="  ⚙  Manage topics", value="manage_topics"),
-            questionary.Separator(" "),
             questionary.Separator("  TOPICS"),
         ]
 
@@ -326,6 +358,26 @@ class TerminalNewspaperApp:
             choices.append(questionary.Separator("     (no active topics)"))
 
         choices.extend([
+            questionary.Separator(" "),
+            questionary.Separator("  SOURCES"),
+        ])
+
+        if self._config.sources:
+            choices.extend(
+                questionary.Choice(title=f"  ·  {src.name}", value=("source", src.name))
+                for src in self._config.sources
+            )
+        else:
+            choices.append(questionary.Separator("     (no active sources)"))
+
+        choices.extend([
+            questionary.Separator(" "),
+            questionary.Choice(title="  🎲 Random article", value="random"),
+            questionary.Separator(" "),
+            questionary.Separator("  ACTIONS"),
+            questionary.Choice(title="  ↻  Fetch & index news", value="prepare"),
+            questionary.Choice(title="  ⚙  Manage sources", value="manage_sources"),
+            questionary.Choice(title="  ⚙  Manage topics", value="manage_topics"),
             questionary.Separator(DIVIDER),
             questionary.Choice(title="  ✕  Quit", value="quit"),
         ])
